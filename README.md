@@ -1,5 +1,5 @@
 <!-- Deep Learning Study Repository -->
-# Deep Learning Study 📚
+# Learning Machine Learning: From Basics to Deep Learning 📚
 
 Welcome to my personal deep learning study repository! This space is dedicated to tracking my progress and sharing my learning journey in deep learning. The topics listed below are my end goals—areas I aim to explore and master over time. Not all topics are covered yet, but this repo will grow as I learn.
 
