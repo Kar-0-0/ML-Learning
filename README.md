@@ -58,3 +58,55 @@ This repository is licensed under the MIT License.
 ---
 
 Happy learning! 🚀
+
+---
+# Output from Bigram.py
+
+### Hyperparameters
+
+epochs = 5000
+n_layers = 6
+context_size = 256
+batch_size = 64
+learning_rate = 3e-4
+num_heads = 6
+n_emb = 384
+head_size = n_emb // num_heads
+dropout = .2
+device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+
+### Output (1,000 Characters)
+
+WARWICK:
+And, then, my gracious lord
+And, all make recomfort of troops:
+But as thou meane the king's body,
+Proud the father that hinds--for that dance sleep,
+Subjects to seel others, mount that is the dead;
+For thou becausear'd of her home:
+I, boy, her monumbering in barren, he must
+Upon the short, much messen it shall
+Scraign in kindle. Go, fie, look my help,
+With I'rthly, which so far on thy uncle.
+
+GLOUCESTER:
+As I spain more dieted; call that I am.
+
+CAMILLO:
+God give, good my lord: say the tents to prove,
+Or empty, threton as my point as mine:
+I know in farewell to the notesty entrails,
+Nor that country's pilot.
+
+WARWIMONAMUS:
+Agree; old fall our generaties are yourself good as
+For what marks; I would I would say leave,
+There far beauty to my sweet life for a country;
+Then would give me in general be touch:
+Might we will be mildine; take the look of a day.
+I took your brother.
+
+POMPEY:
+For you know ever beloved yourself.
+I have not at hangment, or else you may live
+notine in me.
