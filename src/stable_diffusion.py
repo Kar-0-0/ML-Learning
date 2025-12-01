@@ -5,64 +5,109 @@ import json
 
 
 class ResnetBlock2D(nn.Module):
-    def __init__(self, in_channels, out_channels, norm_num_groups):
+    def __init__(
+            self,
+            in_channels,
+            out_channels, 
+            norm_num_groups, 
+    ):
         super().__init__()
-        self.norm1 = nn.GroupNorm(norm_num_groups, in_channels)
-        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, padding=1)
-        self.norm2 = nn.GroupNorm(norm_num_groups, out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1)
-        if in_channels != out_channels:
-            self.conv_shortcut = nn.Conv2d(in_channels, out_channels, 1)
-        else:
-            self.conv_shortcut = nn.Identity()
-        self.act = nn.SiLU()
+        
+        self.group_norm1 = nn.GroupNorm(norm_num_groups, in_channels)
+        self.silu1 = nn.SiLU()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
 
+        self.group_norm2 = nn.GroupNorm(norm_num_groups, out_channels)
+        self.silu2 = nn.SiLU()
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+
+        if in_channels != out_channels:
+            self.skip = nn.Conv2d(in_channels, out_channels, 1)
+        else:
+            self.skip = nn.Identity()
+        
     def forward(self, x):
-        h = self.conv1(self.act(self.norm1(x)))
-        h = self.conv2(self.act(self.norm2(h)))
-        return self.conv_shortcut(x) + h
+        h = self.conv1(self.silu1(self.group_norm1(x)))
+        h = self.conv2(self.silu2(self.group_norm2(h)))
+        
+        return self.skip(x) + h
 
 
 class DownEncoderBlock2D(nn.Module):
-    def __init__(self, in_channels, out_channels, layers_per_block, norm_num_groups, add_downsample=True):
+    def __init__(
+      self, 
+      in_channels, 
+      out_channels,
+      layers_per_block,
+      norm_num_groups, 
+      add_downsample=True
+    ):
         super().__init__()
         self.resnets = nn.ModuleList()
         ch_in = in_channels
+
         for _ in range(layers_per_block):
             self.resnets.append(ResnetBlock2D(ch_in, out_channels, norm_num_groups))
             ch_in = out_channels
+
         self.add_downsample = add_downsample
         if add_downsample:
-            self.downsamplers = nn.ModuleList([nn.Conv2d(out_channels, out_channels, 3, stride=2, padding=1)])
-        else:
-            self.downsamplers = nn.ModuleList()
-
+            self.downsample = nn.Conv2d(
+                out_channels,
+                out_channels,
+                kernel_size=3,
+                stride=2,
+                padding=1
+            )
+    
     def forward(self, x):
         for resnet in self.resnets:
             x = resnet(x)
-        for downsampler in self.downsamplers:
-            x = downsampler(x)
+        if self.add_downsample:
+            x = self.downsample(x)
+        
         return x
 
 
 class UpDecoderBlock2D(nn.Module):
-    def __init__(self, in_channels, out_channels, layers_per_block, norm_num_groups, add_upsample):
+    def __init__(
+        self, 
+        in_channels, 
+        out_channels,
+        layers_per_block,
+        norm_num_groups,  
+        add_upsample
+    ):
         super().__init__()
         self.resnets = nn.ModuleList()
-        ch_in = in_channels
+        in_ch = in_channels
         for _ in range(layers_per_block):
-            self.resnets.append(ResnetBlock2D(ch_in, out_channels, norm_num_groups))
-            ch_in = out_channels
-        if add_upsample:
-            self.upsamplers = nn.ModuleList([nn.ConvTranspose2d(out_channels, out_channels, 4, stride=2, padding=1)])
-        else:
-            self.upsamplers = nn.ModuleList()
+            self.resnets.append(
+                ResnetBlock2D(
+                    in_ch,
+                    out_channels,
+                    norm_num_groups
+                )
+            )
+            in_ch = out_channels
 
+        self.add_upsample = add_upsample
+        if add_upsample:
+            self.upsample = nn.ConvTranspose2d(
+                out_channels,
+                out_channels,
+                kernel_size=4,
+                stride=2,
+                padding=1
+            )
+    
     def forward(self, x):
         for resnet in self.resnets:
             x = resnet(x)
-        for upsampler in self.upsamplers:
-            x = upsampler(x)
+
+        if self.add_upsample:
+            x = self.upsample(x)
+        
         return x
 
 
@@ -205,41 +250,3 @@ class AutoencoderKL(nn.Module):
         x_recon = self.decoder(z)
 
         return x_recon
-
-
-
-
-if __name__ == '__main__':
-    from safetensors.torch import load_file
-    from pathlib import Path
-
-    project_root = Path(__file__).resolve().parents[1]  # DL_STUDY
-    vae_config_path = project_root / "configs" / "AutoKL.json"
-
-    with open(vae_config_path, "r") as f:
-        cfg = json.load(f)
-
-
-    vae = AutoencoderKL(
-    in_channels=cfg["in_channels"],
-    out_channels=cfg["out_channels"],
-    latent_channels=cfg["latent_channels"],
-    block_out_channels=cfg["block_out_channels"],
-    down_block_types=cfg["down_block_types"],
-    up_block_types=cfg["up_block_types"],
-    layers_per_block=cfg["layers_per_block"],
-    norm_num_groups=cfg.get("norm_num_groups", 32),
-    sample_size=cfg["sample_size"],
-    scaling_factor=cfg["scaling_factor"],
-    )
-    vae.eval()
-
-    project_root = Path(__file__).resolve().parent.parent
-    vae_weights_path = project_root /  "model_weights" / "diffusion_pytorch_model.safetensors"
-    sd = load_file(vae_weights_path, device="cpu")
-
-    missing, unexpected = vae.load_state_dict(sd, strict=False)
-    print("Missing:", missing)
-    print("Unexpected:", unexpected)
-
-
